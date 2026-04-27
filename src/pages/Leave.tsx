@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Calendar, Plus, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface LeaveRequest {
-  id: number;
+  id: string;
   type: string;
   startDate: string;
   endDate: string;
@@ -22,51 +23,6 @@ interface LeaveRequest {
   appliedOn: string;
   approvedBy?: string;
 }
-
-const leaveRequests: LeaveRequest[] = [
-  {
-    id: 1,
-    type: "Medical",
-    startDate: "Feb 5, 2025",
-    endDate: "Feb 7, 2025",
-    days: 3,
-    reason: "Doctor's appointment and recovery",
-    status: "pending",
-    appliedOn: "Feb 1, 2025",
-  },
-  {
-    id: 2,
-    type: "Personal",
-    startDate: "Jan 20, 2025",
-    endDate: "Jan 21, 2025",
-    days: 2,
-    reason: "Family function",
-    status: "approved",
-    appliedOn: "Jan 15, 2025",
-    approvedBy: "Dr. Sarah Wilson",
-  },
-  {
-    id: 3,
-    type: "Emergency",
-    startDate: "Jan 10, 2025",
-    endDate: "Jan 10, 2025",
-    days: 1,
-    reason: "Family emergency",
-    status: "approved",
-    appliedOn: "Jan 10, 2025",
-    approvedBy: "Dr. Sarah Wilson",
-  },
-  {
-    id: 4,
-    type: "Personal",
-    startDate: "Dec 25, 2024",
-    endDate: "Dec 26, 2024",
-    days: 2,
-    reason: "Holiday celebration",
-    status: "rejected",
-    appliedOn: "Dec 20, 2024",
-  },
-];
 
 const getStatusBadge = (status: LeaveRequest["status"]) => {
   switch (status) {
@@ -96,6 +52,79 @@ const getStatusBadge = (status: LeaveRequest["status"]) => {
 
 const Leave = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Form states
+  const [type, setType] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    fetchLeaveRequests();
+  }, []);
+
+  const fetchLeaveRequests = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('leave_requests')
+        .select('*')
+        .order('applied_on', { ascending: false });
+        
+      if (error) throw error;
+      
+      const formattedData: LeaveRequest[] = data.map((item: any) => ({
+        id: item.id,
+        type: item.type,
+        startDate: item.start_date,
+        endDate: item.end_date,
+        days: item.days,
+        reason: item.reason,
+        status: item.status,
+        appliedOn: new Date(item.applied_on).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        approvedBy: item.approved_by,
+      }));
+      
+      setLeaveRequests(formattedData);
+    } catch (error) {
+      console.error('Error fetching leave requests:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!type || !startDate || !endDate || !reason) return;
+
+    try {
+      // Calculate days roughly
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
+
+      const { error } = await supabase
+        .from('leave_requests')
+        .insert([
+          { type, start_date: startDate, end_date: endDate, days, reason }
+        ]);
+
+      if (error) throw error;
+
+      setIsDialogOpen(false);
+      // Reset form
+      setType("");
+      setStartDate("");
+      setEndDate("");
+      setReason("");
+      
+      // Refresh data
+      fetchLeaveRequests();
+    } catch (error) {
+      console.error('Error submitting leave request:', error);
+    }
+  };
 
   const stats = {
     total: leaveRequests.length,
@@ -132,40 +161,40 @@ const Leave = () => {
               <DialogHeader>
                 <DialogTitle>Apply for Leave</DialogTitle>
               </DialogHeader>
-              <form className="space-y-4 mt-4">
+              <form className="space-y-4 mt-4" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                   <Label>Leave Type</Label>
-                  <Select>
+                  <Select value={type} onValueChange={setType}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select leave type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="medical">Medical Leave</SelectItem>
-                      <SelectItem value="personal">Personal Leave</SelectItem>
-                      <SelectItem value="emergency">Emergency Leave</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="Medical">Medical Leave</SelectItem>
+                      <SelectItem value="Personal">Personal Leave</SelectItem>
+                      <SelectItem value="Emergency">Emergency Leave</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Start Date</Label>
-                    <Input type="date" />
+                    <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
                   </div>
                   <div className="space-y-2">
                     <Label>End Date</Label>
-                    <Input type="date" />
+                    <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Reason</Label>
-                  <Textarea placeholder="Explain your reason for leave..." rows={3} />
+                  <Textarea placeholder="Explain your reason for leave..." rows={3} value={reason} onChange={(e) => setReason(e.target.value)} required />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button variant="premium">Submit Request</Button>
+                  <Button type="submit" variant="premium">Submit Request</Button>
                 </div>
               </form>
             </DialogContent>
@@ -234,21 +263,35 @@ const Leave = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {leaveRequests.map((leave) => (
-                <TableRow key={leave.id}>
-                  <TableCell className="font-medium">{leave.type}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{leave.startDate} - {leave.endDate}</span>
-                    </div>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Loading leave requests...
                   </TableCell>
-                  <TableCell>{leave.days}</TableCell>
-                  <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
-                  <TableCell className="text-muted-foreground">{leave.appliedOn}</TableCell>
-                  <TableCell>{getStatusBadge(leave.status)}</TableCell>
                 </TableRow>
-              ))}
+              ) : leaveRequests.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No leave requests found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                leaveRequests.map((leave) => (
+                  <TableRow key={leave.id}>
+                    <TableCell className="font-medium">{leave.type}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>{leave.startDate} - {leave.endDate}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{leave.days}</TableCell>
+                    <TableCell className="max-w-[200px] truncate">{leave.reason}</TableCell>
+                    <TableCell className="text-muted-foreground">{leave.appliedOn}</TableCell>
+                    <TableCell>{getStatusBadge(leave.status)}</TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </motion.div>

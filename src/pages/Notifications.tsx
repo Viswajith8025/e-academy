@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Bell, Check, CheckCircle2, AlertCircle, Info, Calendar, Trash2, Filter } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 interface Notification {
-  id: number;
+  id: string;
   type: "success" | "warning" | "info" | "event" | "system";
   title: string;
   message: string;
@@ -16,18 +17,6 @@ interface Notification {
   isRead: boolean;
   actionUrl?: string;
 }
-
-const notifications: Notification[] = [
-  { id: 1, type: "success", title: "Task Approved", message: "Your Module 2 task 'JavaScript basics' has been approved by Dr. Sarah Wilson.", time: "2 hours ago", isRead: false },
-  { id: 2, type: "warning", title: "Leave Request Pending", message: "Your leave request for Feb 5-7 is awaiting approval from your mentor.", time: "5 hours ago", isRead: false },
-  { id: 3, type: "event", title: "Upcoming Live Session", message: "Live session with Dr. Sarah Wilson scheduled for tomorrow at 10:00 AM IST.", time: "1 day ago", isRead: false },
-  { id: 4, type: "info", title: "New Module Unlocked", message: "Congratulations! Module 3 'Practical Applications' is now available for you.", time: "1 day ago", isRead: true },
-  { id: 5, type: "success", title: "Certificate Earned", message: "You've earned the 'Quick Learner' badge for completing Module 2 ahead of schedule!", time: "2 days ago", isRead: true },
-  { id: 6, type: "system", title: "System Maintenance", message: "Scheduled maintenance on Feb 10, 2025 from 2:00 AM to 4:00 AM IST.", time: "3 days ago", isRead: true },
-  { id: 7, type: "info", title: "Profile Update Reminder", message: "Please update your LinkedIn profile URL in your account settings.", time: "4 days ago", isRead: true },
-  { id: 8, type: "event", title: "Webinar Invitation", message: "You're invited to 'Career in Tech' webinar on Feb 15, 2025.", time: "5 days ago", isRead: true },
-];
-
 const getIcon = (type: Notification["type"]) => {
   switch (type) {
     case "success":
@@ -60,6 +49,69 @@ const getIconStyle = (type: Notification["type"]) => {
 
 const Notifications = () => {
   const [activeTab, setActiveTab] = useState("all");
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedData: Notification[] = data.map((item: any) => ({
+        id: item.id,
+        type: item.type,
+        title: item.title,
+        message: item.message,
+        time: new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        isRead: item.is_read,
+        actionUrl: item.action_url,
+      }));
+
+      setNotifications(formattedData);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('is_read', false);
+
+      if (error) throw error;
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+    }
+  };
+
+  const markAsRead = async (id: string, currentlyRead: boolean) => {
+    if (currentlyRead) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchNotifications();
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
+  };
+
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const filteredNotifications = notifications.filter((n) => {
@@ -86,7 +138,7 @@ const Notifications = () => {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={markAllAsRead}>
               <Check className="h-4 w-4 mr-2" />
               Mark all as read
             </Button>
@@ -177,6 +229,7 @@ const Notifications = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: index * 0.05 }}
+                        onClick={() => markAsRead(notification.id, notification.isRead)}
                         className={cn(
                           "flex items-start gap-4 p-4 hover:bg-muted/50 transition-colors cursor-pointer",
                           !notification.isRead && "bg-accent/30"

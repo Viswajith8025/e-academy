@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Plus, Send, MessageCircle, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,14 +13,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { cn } from "@/lib/utils";
 
 interface Message {
-  id: number;
+  id: string;
   sender: "user" | "support";
   message: string;
   time: string;
 }
 
 interface Ticket {
-  id: number;
+  id: string;
   subject: string;
   category: string;
   status: "open" | "in-progress" | "resolved" | "closed";
@@ -27,45 +28,6 @@ interface Ticket {
   createdAt: string;
   messages: Message[];
 }
-
-const ticketsData: Ticket[] = [
-  {
-    id: 1,
-    subject: "Unable to access Module 3 content",
-    category: "Technical",
-    status: "in-progress",
-    priority: "high",
-    createdAt: "Jan 30, 2025",
-    messages: [
-      { id: 1, sender: "user", message: "I'm unable to access the Module 3 video content. It shows an error.", time: "Jan 30, 10:00 AM" },
-      { id: 2, sender: "support", message: "Hi! I'm looking into this issue. Could you tell me which browser you're using?", time: "Jan 30, 10:30 AM" },
-      { id: 3, sender: "user", message: "I'm using Chrome on Windows 11.", time: "Jan 30, 10:35 AM" },
-    ],
-  },
-  {
-    id: 2,
-    subject: "Certificate not generated after completion",
-    category: "Certificate",
-    status: "resolved",
-    priority: "medium",
-    createdAt: "Jan 25, 2025",
-    messages: [
-      { id: 1, sender: "user", message: "I completed Module 2 but my certificate wasn't generated.", time: "Jan 25, 2:00 PM" },
-      { id: 2, sender: "support", message: "Certificate has been generated and sent to your email!", time: "Jan 25, 3:00 PM" },
-    ],
-  },
-  {
-    id: 3,
-    subject: "Query about internship extension",
-    category: "General",
-    status: "open",
-    priority: "low",
-    createdAt: "Feb 1, 2025",
-    messages: [
-      { id: 1, sender: "user", message: "Can I extend my internship for 1 more month?", time: "Feb 1, 9:00 AM" },
-    ],
-  },
-];
 
 const getStatusBadge = (status: Ticket["status"]) => {
   switch (status) {
@@ -92,9 +54,107 @@ const getPriorityBadge = (priority: Ticket["priority"]) => {
 };
 
 const Tickets = () => {
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(ticketsData[0]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Form states for new ticket
+  const [subject, setSubject] = useState("");
+  const [category, setCategory] = useState("");
+  const [priority, setPriority] = useState<"low" | "medium" | "high">("low");
+  const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    fetchTickets();
+  }, []);
+
+  const fetchTickets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select(`
+          *,
+          ticket_messages (*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedTickets: Ticket[] = data.map((t: any) => ({
+        id: t.id,
+        subject: t.subject,
+        category: t.category,
+        status: t.status,
+        priority: t.priority,
+        createdAt: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        messages: (t.ticket_messages || []).map((m: any) => ({
+          id: m.id,
+          sender: m.sender,
+          message: m.message,
+          time: new Date(m.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        })).sort((a: any, b: any) => new Date(`1970/01/01 ${a.time}`).getTime() - new Date(`1970/01/01 ${b.time}`).getTime())
+      }));
+
+      setTickets(formattedTickets);
+      if (formattedTickets.length > 0 && !selectedTicket) {
+        setSelectedTicket(formattedTickets[0]);
+      } else if (selectedTicket) {
+        // Update selected ticket messages
+        const updatedSelected = formattedTickets.find(t => t.id === selectedTicket.id);
+        if (updatedSelected) setSelectedTicket(updatedSelected);
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+    }
+  };
+
+  const handleCreateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject || !category || !description) return;
+
+    try {
+      const { data: ticketData, error: ticketError } = await supabase
+        .from('tickets')
+        .insert([{ subject, category, priority }])
+        .select()
+        .single();
+
+      if (ticketError) throw ticketError;
+
+      const { error: msgError } = await supabase
+        .from('ticket_messages')
+        .insert([{ ticket_id: ticketData.id, sender: 'user', message: description }]);
+
+      if (msgError) throw msgError;
+
+      setIsDialogOpen(false);
+      setSubject("");
+      setCategory("");
+      setPriority("low");
+      setDescription("");
+      fetchTickets();
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedTicket) return;
+
+    try {
+      const { error } = await supabase
+        .from('ticket_messages')
+        .insert([{ ticket_id: selectedTicket.id, sender: 'user', message: newMessage }]);
+
+      if (error) throw error;
+
+      setNewMessage("");
+      fetchTickets(); // Refresh messages
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
 
   return (
     <DashboardLayout role="student">
@@ -124,14 +184,14 @@ const Tickets = () => {
               <DialogHeader>
                 <DialogTitle>Create New Ticket</DialogTitle>
               </DialogHeader>
-              <form className="space-y-4 mt-4">
+              <form className="space-y-4 mt-4" onSubmit={handleCreateTicket}>
                 <div className="space-y-2">
                   <Label>Subject</Label>
-                  <Input placeholder="Brief description of your issue" />
+                  <Input placeholder="Brief description of your issue" value={subject} onChange={(e) => setSubject(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <Select>
+                  <Select value={category} onValueChange={setCategory} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
@@ -145,7 +205,7 @@ const Tickets = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Priority</Label>
-                  <Select>
+                  <Select value={priority} onValueChange={(val: any) => setPriority(val)} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select priority" />
                     </SelectTrigger>
@@ -158,13 +218,13 @@ const Tickets = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Description</Label>
-                  <Textarea placeholder="Describe your issue in detail..." rows={4} />
+                  <Textarea placeholder="Describe your issue in detail..." rows={4} value={description} onChange={(e) => setDescription(e.target.value)} required />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button variant="premium">
+                  <Button type="submit" variant="premium">
                     Create Ticket
                   </Button>
                 </div>
@@ -176,7 +236,12 @@ const Tickets = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Tickets List */}
           <div className="lg:col-span-1 space-y-3">
-            {ticketsData.map((ticket, index) => (
+            {tickets.length === 0 && (
+              <div className="text-center p-4 text-muted-foreground border rounded-xl">
+                No tickets found.
+              </div>
+            )}
+            {tickets.map((ticket, index) => (
               <motion.div
                 key={ticket.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -195,7 +260,7 @@ const Tickets = () => {
                   {getStatusBadge(ticket.status)}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>#{ticket.id}</span>
+                  <span>#{ticket.id.substring(0, 8)}</span>
                   <span>•</span>
                   <span>{ticket.category}</span>
                   <span>•</span>
@@ -220,7 +285,7 @@ const Tickets = () => {
                     <div>
                       <h3 className="font-semibold">{selectedTicket.subject}</h3>
                       <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                        <span>Ticket #{selectedTicket.id}</span>
+                        <span>Ticket #{selectedTicket.id.substring(0, 8)}</span>
                         <span>•</span>
                         <span>{selectedTicket.category}</span>
                       </div>
@@ -269,9 +334,10 @@ const Tickets = () => {
                       placeholder="Type your message..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                       className="flex-1"
                     />
-                    <Button variant="premium" size="icon">
+                    <Button variant="premium" size="icon" onClick={handleSendMessage}>
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>
