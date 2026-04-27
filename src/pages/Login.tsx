@@ -43,7 +43,7 @@ const Login = () => {
               Welcome back
             </h1>
             <p className="text-muted-foreground">
-              Enter your credentials to access your account
+              Enter credentials to access your account
             </p>
           </div>
 
