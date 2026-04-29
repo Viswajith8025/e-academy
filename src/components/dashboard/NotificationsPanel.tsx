@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Bell, Check, AlertCircle, Info, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface Notification {
   id: number;
@@ -16,6 +17,7 @@ interface NotificationsPanelProps {
 }
 
 const NotificationsPanel = ({ notifications }: NotificationsPanelProps) => {
+  const navigate = useNavigate();
   const getIcon = (type: Notification["type"]) => {
     switch (type) {
       case "success":
@@ -98,7 +100,10 @@ const NotificationsPanel = ({ notifications }: NotificationsPanelProps) => {
         })}
       </div>
 
-      <button className="w-full mt-4 text-sm text-primary font-medium hover:text-primary/80 transition-colors">
+      <button 
+        onClick={() => navigate("/notifications")}
+        className="w-full mt-4 text-sm text-primary font-medium hover:text-primary/80 transition-colors"
+      >
         View all notifications
       </button>
     </motion.div>

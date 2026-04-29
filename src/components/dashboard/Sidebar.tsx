@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
@@ -15,6 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  MessageCircle,
+  Briefcase,
 } from "lucide-react";
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
@@ -31,15 +33,20 @@ const studentLinks = [
   { icon: Clock, label: "Extensions", href: "/extensions" },
   { icon: Users, label: "Support", href: "/support" },
   { icon: Package, label: "Add-Ons", href: "/addons" },
+  { icon: MessageCircle, label: "Inbox", href: "/student/messages" },
   { icon: Bell, label: "Notifications", href: "/notifications" },
 ];
 
 const teacherLinks = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/teacher-dashboard" },
-  { icon: BookOpen, label: "Modules", href: "/modules" },
-  { icon: Users, label: "Students", href: "/students" },
-  { icon: Ticket, label: "Tickets", href: "/tickets" },
-  { icon: Calendar, label: "Leave Requests", href: "/leave" },
+  { icon: BookOpen, label: "Modules", href: "/teacher/modules" },
+  { icon: Users, label: "Students", href: "/teacher/students" },
+  { icon: Ticket, label: "Tickets", href: "/teacher/tickets" },
+  { icon: Calendar, label: "Leave Requests", href: "/teacher/leave" },
+  { icon: Clock, label: "Extensions", href: "/extensions" },
+  { icon: Users, label: "Support", href: "/support" },
+  { icon: Package, label: "Add-Ons", href: "/addons" },
+  { icon: MessageCircle, label: "Inbox", href: "/teacher/messages" },
   { icon: Bell, label: "Notifications", href: "/notifications" },
 ];
 
@@ -50,13 +57,22 @@ const adminLinks = [
   { icon: Users, label: "Manage Teachers", href: "/admin/teachers" },
   { icon: Ticket, label: "Tickets", href: "/admin/tickets" },
   { icon: Calendar, label: "Leave Requests", href: "/admin/leave" },
-  { icon: Bell, label: "Notifications", href: "/admin/notifications" },
+  { icon: Clock, label: "Manage Extensions", href: "/admin/extensions" },
+  {icon: Bell, label: "Notifications", href: "/admin/notifications" },
+  { icon: Briefcase, label: "Manage Careers", href: "/admin/careers" },
   { icon: Settings, label: "Settings", href: "/admin/settings" },
 ];
 
 const Sidebar = ({ role }: SidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
 
   const links = role === "admin" ? adminLinks : role === "teacher" ? teacherLinks : studentLinks;
 
@@ -128,9 +144,9 @@ const Sidebar = ({ role }: SidebarProps) => {
 
       {/* Footer */}
       <div className="p-3 border-t border-sidebar-border">
-        <Link
-          to="/login"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
         >
           <LogOut className="h-5 w-5 shrink-0" />
           <AnimatePresence mode="wait">
@@ -145,7 +161,7 @@ const Sidebar = ({ role }: SidebarProps) => {
               </motion.span>
             )}
           </AnimatePresence>
-        </Link>
+        </button>
       </div>
     </motion.aside>
   );

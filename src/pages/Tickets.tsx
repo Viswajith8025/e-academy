@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { sendNotification } from "@/lib/notifications";
 
 interface Message {
   id: string;
@@ -71,12 +73,18 @@ const Tickets = () => {
 
   const fetchTickets = async () => {
     try {
+      // Get logged-in user ID for data isolation
+      const sessionUserStr = localStorage.getItem("user");
+      if (!sessionUserStr) return;
+      const sessionUser = JSON.parse(sessionUserStr);
+
       const { data, error } = await supabase
         .from('tickets')
         .select(`
           *,
           ticket_messages (*)
         `)
+        .eq('user_id', sessionUser.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -114,9 +122,20 @@ const Tickets = () => {
     if (!subject || !category || !description) return;
 
     try {
+      // Get logged-in user ID
+      const sessionUserStr = localStorage.getItem("user");
+      if (!sessionUserStr) return;
+      const sessionUser = JSON.parse(sessionUserStr);
+
+      // Check if user ID is a valid UUID (simple check)
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionUser.id)) {
+        toast.error("Invalid session. Please log out and log back in to refresh your account.");
+        return;
+      }
+
       const { data: ticketData, error: ticketError } = await supabase
         .from('tickets')
-        .insert([{ subject, category, priority }])
+        .insert([{ subject, category, priority, user_id: sessionUser.id }])
         .select()
         .single();
 
@@ -128,14 +147,21 @@ const Tickets = () => {
 
       if (msgError) throw msgError;
 
+      // Notify mentor/admin
+      const { data: profile } = await supabase.from('profiles').select('mentor_id').eq('id', sessionUser.id).single();
+      await sendNotification(
+        "New Support Ticket",
+        `${sessionUser.full_name} has raised a ${priority} priority ticket: ${subject}`,
+        priority === 'high' ? 'error' : 'info',
+        profile?.mentor_id,
+        "teacher"
+      );
+
       setIsDialogOpen(false);
-      setSubject("");
-      setCategory("");
-      setPriority("low");
-      setDescription("");
-      fetchTickets();
-    } catch (error) {
+      toast.success("Ticket created!");
+    } catch (error: any) {
       console.error('Error creating ticket:', error);
+      toast.error("Failed to create ticket: " + error.message);
     }
   };
 

@@ -117,6 +117,15 @@ const Index = () => {
                 <span>{item}</span>
               </motion.a>
             ))}
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+            >
+              <Link to="/careers" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Careers
+              </Link>
+            </motion.div>
           </div>
           <div className="flex items-center gap-4">
             <Link to="/login">

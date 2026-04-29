@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Check, Lock, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
 
 interface Module {
   id: number;
@@ -14,6 +15,7 @@ interface JourneyMapProps {
 }
 
 const JourneyMap = ({ modules }: JourneyMapProps) => {
+  const navigate = useNavigate();
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -51,11 +53,12 @@ const JourneyMap = ({ modules }: JourneyMapProps) => {
 
               {/* Content */}
               <div
+                onClick={() => module.status !== "locked" && navigate("/modules")}
                 className={cn(
                   "flex-1 p-4 rounded-xl transition-all duration-300",
-                  module.status === "completed" && "bg-success/5 border border-success/20",
-                  module.status === "current" && "bg-primary/5 border border-primary/30 shadow-sm",
-                  module.status === "locked" && "bg-muted/50 border border-border opacity-60"
+                  module.status === "completed" && "bg-success/5 border border-success/20 hover:bg-success/10 cursor-pointer",
+                  module.status === "current" && "bg-primary/5 border border-primary/30 shadow-sm hover:bg-primary/10 cursor-pointer",
+                  module.status === "locked" && "bg-muted/50 border border-border opacity-60 cursor-not-allowed"
                 )}
               >
                 <div className="flex items-center justify-between">

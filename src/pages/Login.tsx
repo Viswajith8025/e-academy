@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, User, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Logo from "@/components/Logo";
+import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("student");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -17,17 +21,94 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate login - replace with actual auth
-    setTimeout(() => {
+
+    // Clear legacy sessions
+    const oldUser = localStorage.getItem("user");
+    if (oldUser && (oldUser.includes("student-master") || oldUser.includes("teacher-master") || oldUser.includes("admin-master"))) {
+      localStorage.removeItem("user");
+    }
+
+    try {
+      // 1. Check for Admin Override
+      const masterAccounts: Record<string, any> = {
+        "admin@eit.com": { 
+          id: "00000000-0000-0000-0000-000000000001", 
+          full_name: "Master Admin", 
+          role: "admin",
+          email: "admin@eit.com",
+          avatar_seed: "admin"
+        },
+        "teacher@eit.com": { 
+          id: "00000000-0000-0000-0000-000000000002", 
+          full_name: "Master Teacher", 
+          role: "teacher",
+          email: "teacher@eit.com",
+          avatar_seed: "teacher"
+        },
+        "student@eit.com": { 
+          id: "00000000-0000-0000-0000-000000000003", 
+          full_name: "Master Student", 
+          role: "student",
+          email: "student@eit.com",
+          avatar_seed: "student",
+          mentor: "Master Teacher"
+        }
+      };
+
+      if (masterAccounts[email.toLowerCase()] && password === "12345678") {
+        const user = masterAccounts[email.toLowerCase()];
+        localStorage.setItem("user", JSON.stringify(user));
+        toast.success(`Welcome back, ${user.full_name}!`);
+        
+        if (user.role === "admin") navigate("/admin");
+        else if (user.role === "teacher") navigate("/teacher-dashboard");
+        else navigate("/dashboard");
+        return;
+      }
+
+      // 2. Regular Authentication Check
+      // First check if email exists, then verify password
+      const { data: profileByEmail, error: emailError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email.trim())
+        .single();
+
+      if (emailError || !profileByEmail) {
+        throw new Error("No account found with this email");
+      }
+
+      // Compare passwords (trim whitespace to avoid mismatch)
+      if (profileByEmail.password !== password.trim()) {
+        throw new Error("Incorrect password");
+      }
+
+      const data = profileByEmail;
+
+      // Store user session info
+      localStorage.setItem("user", JSON.stringify(data));
+      
+      toast.success(`Welcome back, ${data.full_name}!`);
+
+      // 3. Role-based Redirection
+      if (data.role === "admin") {
+        navigate("/admin");
+      } else if (data.role === "teacher") {
+        navigate("/teacher-dashboard");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Authentication failed");
+    } finally {
       setIsLoading(false);
-      navigate("/dashboard");
-    }, 1000);
+    }
   };
 
   return (
     <div className="min-h-screen flex">
       {/* Left side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 lg:p-12">
+      <div className="flex-1 flex items-center justify-center p-8 lg:p-12 bg-background">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -38,14 +119,33 @@ const Login = () => {
             <Logo size="lg" />
           </div>
 
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-3xl font-bold text-foreground mb-2">
               Welcome back
             </h1>
             <p className="text-muted-foreground">
-              Enter credentials to access your account
+              Choose your role and enter credentials
             </p>
           </div>
+
+          <Tabs defaultValue="student" className="mb-8" onValueChange={setRole}>
+            <TabsList className="grid w-full grid-cols-2 p-1 bg-muted/50 rounded-xl h-12">
+              <TabsTrigger 
+                value="student" 
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md transition-all gap-2"
+              >
+                <GraduationCap className="h-4 w-4" />
+                Student
+              </TabsTrigger>
+              <TabsTrigger 
+                value="teacher"
+                className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-md transition-all gap-2"
+              >
+                <User className="h-4 w-4" />
+                Teacher
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
@@ -58,7 +158,7 @@ const Login = () => {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 h-11"
                   required
                 />
               </div>
@@ -82,7 +182,7 @@ const Login = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
+                  className="pl-10 pr-10 h-11"
                   required
                 />
                 <button
@@ -97,8 +197,7 @@ const Login = () => {
 
             <Button 
               type="submit" 
-              className="w-full" 
-              size="lg"
+              className="w-full h-12 text-base" 
               variant="premium"
               disabled={isLoading}
             >
@@ -106,8 +205,8 @@ const Login = () => {
                 <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : (
                 <>
-                  Sign in
-                  <ArrowRight className="h-5 w-5" />
+                  Sign in as {role.charAt(0).toUpperCase() + role.slice(1)}
+                  <ArrowRight className="h-5 w-5 ml-2" />
                 </>
               )}
             </Button>

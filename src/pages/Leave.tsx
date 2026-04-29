@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { toast } from "sonner";
+import { sendNotification } from "@/lib/notifications";
 
 interface LeaveRequest {
   id: string;
@@ -67,13 +69,19 @@ const Leave = () => {
 
   const fetchLeaveRequests = async () => {
     try {
+      // Get logged-in user ID for data isolation
+      const sessionUserStr = localStorage.getItem("user");
+      if (!sessionUserStr) return;
+      const sessionUser = JSON.parse(sessionUserStr);
+
       const { data, error } = await supabase
         .from('leave_requests')
         .select('*')
+        .eq('user_id', sessionUser.id)
         .order('applied_on', { ascending: false });
-        
+
       if (error) throw error;
-      
+
       const formattedData: LeaveRequest[] = data.map((item: any) => ({
         id: item.id,
         type: item.type,
@@ -85,7 +93,7 @@ const Leave = () => {
         appliedOn: new Date(item.applied_on).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         approvedBy: item.approved_by,
       }));
-      
+
       setLeaveRequests(formattedData);
     } catch (error) {
       console.error('Error fetching leave requests:', error);
@@ -104,25 +112,49 @@ const Leave = () => {
       const end = new Date(endDate);
       const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1;
 
+      // Get logged-in user ID
+      const sessionUserStr = localStorage.getItem("user");
+      if (!sessionUserStr) return;
+      const sessionUser = JSON.parse(sessionUserStr);
+
+      // Check if user ID is a valid UUID
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionUser.id)) {
+        toast.error("Invalid session. Please log out and log back in.");
+        return;
+      }
+
       const { error } = await supabase
         .from('leave_requests')
         .insert([
-          { type, start_date: startDate, end_date: endDate, days, reason }
+          { type, start_date: startDate, end_date: endDate, days, reason, user_id: sessionUser.id }
         ]);
 
       if (error) throw error;
 
+      // Notify mentor
+      const { data: profile } = await supabase.from('profiles').select('mentor_id').eq('id', sessionUser.id).single();
+      if (profile?.mentor_id) {
+        await sendNotification(
+          "Leave Request",
+          `${sessionUser.full_name} has requested leave for ${days} days starting ${startDate}.`,
+          "warning",
+          profile.mentor_id
+        );
+      }
+
       setIsDialogOpen(false);
+      toast.success("Leave request submitted!");
       // Reset form
       setType("");
       setStartDate("");
       setEndDate("");
       setReason("");
-      
+
       // Refresh data
       fetchLeaveRequests();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting leave request:', error);
+      toast.error("Failed to submit leave: " + error.message);
     }
   };
 
