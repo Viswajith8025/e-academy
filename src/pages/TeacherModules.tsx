@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, CheckCircle2, XCircle, Clock, ExternalLink, Loader2, ChevronDown, ChevronRight, Video, Plus, Trash2, FileVideo } from "lucide-react";
+import { BookOpen, CheckCircle2, XCircle, Clock, ExternalLink, Loader2, ChevronDown, ChevronRight, Video, Plus, Trash2, FileVideo, AlertCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sendNotification } from "@/lib/notifications";
+import QuizManager from "@/components/dashboard/QuizManager";
+
 
 interface Submission {
   id: string;
@@ -41,7 +43,19 @@ interface ModuleWithSubmissions {
     video_url: string;
     completedBy: string[];
   }[];
+  quizId?: string;
 }
+
+interface QuizAccessRequest {
+  id: string;
+  user_id: string;
+  studentName: string;
+  quiz_id: string;
+  moduleTitle: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+}
+
 
 const getStatusBadge = (status: Submission["status"]) => {
   switch (status) {
@@ -68,6 +82,12 @@ const TeacherModules = () => {
   const [videoTitle, setVideoTitle] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+
+  // Quiz Management State
+  const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false);
+  const [selectedModuleForQuiz, setSelectedModuleForQuiz] = useState<{id: string, title: string} | null>(null);
+  const [accessRequests, setAccessRequests] = useState<QuizAccessRequest[]>([]);
+
 
   useEffect(() => {
     fetchData();
@@ -110,6 +130,35 @@ const TeacherModules = () => {
       const { data: videosData } = await supabase.from('module_videos').select('*').order('order_num', { ascending: true });
       const { data: subsData } = await supabase.from('task_submissions').select('*').in('user_id', studentIds).order('submitted_at', { ascending: false });
       const { data: videoProgressData } = await supabase.from('video_progress').select('*').in('user_id', studentIds);
+      const { data: quizzesData } = await supabase.from('quizzes').select('id, module_id');
+
+      // Fetch Access Requests
+      const { data: requestsData } = await supabase
+        .from('quiz_access_requests')
+        .select(`
+          id,
+          user_id,
+          quiz_id,
+          status,
+          requested_at,
+          quizzes (
+            module_id,
+            modules (title)
+          )
+        `)
+        .eq('status', 'pending');
+
+      const processedRequests: QuizAccessRequest[] = (requestsData || []).map((r: any) => ({
+        id: r.id,
+        user_id: r.user_id,
+        studentName: sMap[r.user_id]?.name || "Unknown",
+        quiz_id: r.quiz_id,
+        moduleTitle: r.quizzes?.modules?.title || "Unknown Module",
+        status: r.status,
+        requested_at: r.requested_at
+      }));
+      setAccessRequests(processedRequests);
+
 
       const processedModules: ModuleWithSubmissions[] = (modulesData || []).map((m: any) => {
         const moduleTasks = (tasksData || [])
@@ -143,8 +192,10 @@ const TeacherModules = () => {
               title: v.title,
               video_url: v.video_url,
               completedBy: (videoProgressData || []).filter((p: any) => p.video_id === v.id).map((p: any) => p.user_id)
-            }))
+            })),
+          quizId: (quizzesData || []).find((q: any) => q.module_id === m.id)?.id
         };
+
       });
 
       setModules(processedModules);
@@ -210,6 +261,31 @@ const TeacherModules = () => {
     }
   };
 
+  const handleApproveAccess = async (requestId: string, studentId: string, moduleTitle: string) => {
+    const { error } = await supabase
+      .from('quiz_access_requests')
+      .update({ status: 'approved', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+
+    if (error) {
+      toast.error("Failed to approve: " + error.message);
+      return;
+    }
+
+    // Reset attempts for this student on this quiz? 
+    // Actually, the student logic should check if there's an approved request.
+    // I'll just notify the student.
+    toast.success("Access request approved");
+    await sendNotification(
+      "Quiz Access Approved", 
+      `Your request for more attempts in "${moduleTitle}" has been approved.`, 
+      "success", 
+      studentId
+    );
+    fetchData();
+  };
+
+
   const toggleModule = (moduleId: string) => {
     setExpandedModules(prev => {
       const next = new Set(prev);
@@ -269,6 +345,40 @@ const TeacherModules = () => {
           })()}
         </div>
 
+        {accessRequests.length > 0 && (
+          <div className="premium-card p-6 border-warning/30 bg-warning/5">
+            <h2 className="text-lg font-bold flex items-center gap-2 mb-4">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              Quiz Access Requests
+            </h2>
+            <div className="space-y-3">
+              {accessRequests.map(req => (
+                <div key={req.id} className="flex items-center justify-between p-3 rounded-lg border bg-card shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${studentMap[req.user_id]?.avatar}`} />
+                      <AvatarFallback>{req.studentName[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold">{req.studentName}</p>
+                      <p className="text-xs text-muted-foreground">Requested more attempts for <b>{req.moduleTitle}</b></p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => handleApproveAccess(req.id, req.user_id, req.moduleTitle)}>Approve</Button>
+                    <Button size="sm" variant="outline" className="text-destructive border-destructive" onClick={async () => {
+                      await supabase.from('quiz_access_requests').update({ status: 'rejected' }).eq('id', req.id);
+                      toast.success("Request rejected");
+                      fetchData();
+                    }}>Reject</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+
         <div className="space-y-4">
           {modules.length === 0 ? <div className="text-center py-10 border rounded-xl bg-card">No modules found.</div> : modules.map((mod) => (
             <div key={mod.id} className="rounded-xl border bg-card overflow-hidden">
@@ -286,9 +396,17 @@ const TeacherModules = () => {
               {expandedModules.has(mod.id) && (
                 <div className="border-t">
                   <div className="p-4 bg-muted/10 border-b flex items-center justify-between">
-                    <h4 className="text-sm font-semibold flex items-center gap-2"><Video className="h-4 w-4 text-primary" />Module Videos</h4>
-                    <Button size="sm" variant="outline" onClick={() => { setSelectedModuleForVideo(mod.id); setIsVideoDialogOpen(true); }}><Plus className="h-4 w-4 mr-1" />Add Video</Button>
+                    <h4 className="text-sm font-semibold flex items-center gap-2"><Video className="h-4 w-4 text-primary" />Module Content</h4>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedModuleForQuiz({id: mod.id, title: mod.title}); setIsQuizDialogOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" />{mod.quizId ? "Edit Quiz" : "Add Quiz"}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedModuleForVideo(mod.id); setIsVideoDialogOpen(true); }}>
+                        <Plus className="h-4 w-4 mr-1" />Add Video
+                      </Button>
+                    </div>
                   </div>
+
                   {mod.videos.length > 0 && (
                     <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                       {mod.videos.map(video => (
@@ -370,7 +488,26 @@ const TeacherModules = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isQuizDialogOpen} onOpenChange={setIsQuizDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manage Quiz: {selectedModuleForQuiz?.title}</DialogTitle>
+          </DialogHeader>
+          {selectedModuleForQuiz && (
+            <QuizManager 
+              moduleId={selectedModuleForQuiz.id} 
+              moduleTitle={selectedModuleForQuiz.title} 
+              onClose={() => {
+                setIsQuizDialogOpen(false);
+                fetchData();
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
+
   );
 };
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { User, Mail, Shield, Book, Calendar, Edit2, Check, X, Camera, Loader2, ArrowLeft, Users } from "lucide-react";
+import { User, Mail, Shield, Book, Calendar, Edit2, Check, X, Camera, Loader2, ArrowLeft, Users, CreditCard, Download, Eye } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import StudentIDCard from "@/components/dashboard/StudentIDCard";
+import html2canvas from "html2canvas";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 
 const Profile = () => {
   const { userId } = useParams();
@@ -19,6 +24,9 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showIDCard, setShowIDCard] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
   
   const [formData, setFormData] = useState({
     full_name: "",
@@ -55,7 +63,22 @@ const Profile = () => {
         .single();
 
       if (error) throw error;
+      
+      // Auto-generate ID number for students if missing
+      if (data.role === 'student' && !data.id_number) {
+        const newIdNumber = `EIT-2025-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ id_number: newIdNumber })
+          .eq('id', data.id);
+        
+        if (!updateError) {
+          data.id_number = newIdNumber;
+        }
+      }
+
       setProfile(data);
+
       setFormData({
         full_name: data.full_name || "",
         avatar_url: data.avatar_url || "",
@@ -338,8 +361,26 @@ const Profile = () => {
               </div>
               <h4 className="font-bold text-lg capitalize">{profile?.role} Account</h4>
               <p className="text-sm text-muted-foreground mt-1">Verified Member</p>
-              <div className="mt-6 pt-6 border-t space-y-4 text-left">
-                <div className="flex justify-between items-center text-sm">
+              
+              {profile?.id_number && (
+                <div className="mt-4 p-3 bg-muted/50 rounded-xl border border-dashed border-primary/20">
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Student ID</p>
+                  <p className="text-sm font-mono font-bold text-primary">{profile.id_number}</p>
+                </div>
+              )}
+
+              <div className="mt-6 pt-6 border-t space-y-3">
+                {profile?.role === 'student' && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full gap-2"
+                    onClick={() => setShowIDCard(true)}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Digital ID Card
+                  </Button>
+                )}
+                <div className="flex justify-between items-center text-sm pt-2">
                   <span className="text-muted-foreground">Status</span>
                   <span className="text-success font-medium flex items-center gap-1">
                     <div className="h-2 w-2 rounded-full bg-success animate-pulse" />
@@ -354,8 +395,55 @@ const Profile = () => {
             </div>
           </motion.div>
         </div>
+
+        {/* ID Card Dialog */}
+        <Dialog open={showIDCard} onOpenChange={setShowIDCard}>
+          <DialogContent className="max-w-md p-0 overflow-hidden bg-transparent border-none shadow-none">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Digital Student ID</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center space-y-6">
+              <div className="scale-90 md:scale-100 origin-top">
+                <StudentIDCard student={profile} />
+              </div>
+              <div className="flex gap-4 pb-6">
+                <Button 
+                  variant="premium" 
+                  size="lg"
+                  className="gap-2 px-8"
+                  disabled={isGenerating}
+                  onClick={async () => {
+                    setIsGenerating(true);
+                    try {
+                      const element = document.getElementById("student-id-card");
+                      if (element) {
+                        const canvas = await html2canvas(element, { scale: 2, backgroundColor: null });
+                        const link = document.createElement("a");
+                        link.download = `EIT_ID_${profile.full_name.replace(/\s+/g, '_')}.png`;
+                        link.href = canvas.toDataURL("image/png");
+                        link.click();
+                        toast.success("ID Card downloaded!");
+                      }
+                    } catch (error) {
+                      toast.error("Failed to download ID card.");
+                    } finally {
+                      setIsGenerating(false);
+                    }
+                  }}
+                >
+                  {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Download ID Card
+                </Button>
+                <Button variant="secondary" onClick={() => setShowIDCard(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
+
   );
 };
 

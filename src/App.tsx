@@ -11,7 +11,9 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import Modules from "./pages/Modules";
+import Certificates from "./pages/Certificates";
 import Tickets from "./pages/Tickets";
+
 import Leave from "./pages/Leave";
 import Extensions from "./pages/Extensions";
 import Support from "./pages/Support";
@@ -36,8 +38,10 @@ import TeacherMessages from "./pages/TeacherMessages";
 import StudentMessages from "./pages/StudentMessages";
 import StudentPortal from "./pages/StudentPortal";
 import Careers from "./pages/Careers";
+import Pathfinder from "./pages/Pathfinder";
 import AdminCareers from "./pages/admin/AdminCareers";
 import NotFound from "./pages/NotFound";
+
 
 const queryClient = new QueryClient();
 
@@ -64,7 +68,9 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
+              <Route path="/pathfinder" element={<Pathfinder />} />
               <Route path="/careers" element={<Careers />} />
+
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -77,6 +83,8 @@ const App = () => {
               <Route path="/teacher/students" element={<TeacherStudents />} />
               <Route path="/teacher/messages" element={<TeacherMessages />} />
               <Route path="/modules" element={<Modules />} />
+              <Route path="/certificates" element={<Certificates />} />
+
 
               <Route path="/tickets" element={<Tickets />} />
               <Route path="/leave" element={<Leave />} />

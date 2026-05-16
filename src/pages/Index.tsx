@@ -105,10 +105,11 @@ const Index = () => {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Logo size="md" />
           <div className="hidden md:flex items-center gap-6">
-            {["Programs", "Team", "Reviews", "Contact"].map((item, i) => (
+            {["Programs", "Pathfinder", "Team", "Reviews", "Contact"].map((item, i) => (
               <motion.a
                 key={item}
-                href={`#${item.toLowerCase() === "reviews" ? "testimonials" : item.toLowerCase()}`}
+                href={item === "Pathfinder" ? "/pathfinder" : `#${item.toLowerCase() === "reviews" ? "testimonials" : item.toLowerCase()}`}
+
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 + i * 0.1 }}
@@ -327,8 +328,25 @@ const Index = () => {
               </motion.div>
             ))}
           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mt-16 p-8 rounded-3xl bg-gradient-to-r from-primary/10 via-blue-500/5 to-primary/10 border border-primary/20 text-center"
+          >
+            <h3 className="text-2xl font-bold mb-4">Not sure which path is right for you?</h3>
+            <p className="text-muted-foreground mb-6 max-w-xl mx-auto">Take our 2-minute Career Pathfinder quiz to find the perfect internship track based on your aptitude and interests.</p>
+            <Link to="/pathfinder">
+              <Button variant="premium" size="lg" className="group">
+                Take Pathfinder Quiz
+                <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
       </section>
+
 
       {/* Features Section */}
       <section className="py-20 px-4 bg-muted/30">

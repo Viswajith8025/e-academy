@@ -11,6 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { sendNotification } from "@/lib/notifications";
+import QuizPlayer from "@/components/dashboard/QuizPlayer";
+import { HelpCircle } from "lucide-react";
+
 
 interface TaskSubmission {
   id: string;
@@ -40,6 +43,10 @@ interface Module {
     video_url: string;
     is_completed: boolean;
   }[];
+  quizId?: string;
+  quizAttempts: number;
+  quizPassed: boolean;
+  accessRequestStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 const getTaskStatusIcon = (status: Task["status"]) => {
@@ -81,6 +88,11 @@ const Modules = () => {
 
   // Video Player State
   const [selectedVideo, setSelectedVideo] = useState<{title: string, url: string} | null>(null);
+
+  // Quiz State
+  const [activeQuiz, setActiveQuiz] = useState<{id: string, moduleTitle: string} | null>(null);
+  const [isRequestingAccess, setIsRequestingAccess] = useState(false);
+
 
   useEffect(() => {
     fetchModulesData();
@@ -138,7 +150,12 @@ const Modules = () => {
 
       if (subsError) throw subsError;
 
+      const { data: quizzesData } = await supabase.from('quizzes').select('id, module_id');
+      const { data: attemptsData } = await supabase.from('quiz_attempts').select('*').eq('user_id', userId);
+      const { data: accessRequestsData } = await supabase.from('quiz_access_requests').select('*').eq('user_id', userId);
+
       let previousModuleCompleted = true;
+
 
       const processedModules: Module[] = (modulesData || []).map((m: any) => {
         const moduleTasks: Task[] = (tasksData || [])
@@ -182,8 +199,13 @@ const Modules = () => {
               title: v.title,
               video_url: v.video_url,
               is_completed: (progressData || []).some((p: any) => p.video_id === v.id)
-            }))
+            })),
+          quizId: (quizzesData || []).find((q: any) => q.module_id === m.id)?.id,
+          quizAttempts: (attemptsData || []).filter((a: any) => a.quiz_id === (quizzesData || []).find((q: any) => q.module_id === m.id)?.id).length,
+          quizPassed: (attemptsData || []).some((a: any) => a.quiz_id === (quizzesData || []).find((q: any) => q.module_id === m.id)?.id && a.passed),
+          accessRequestStatus: (accessRequestsData || []).find((r: any) => r.quiz_id === (quizzesData || []).find((q: any) => q.module_id === m.id)?.id)?.status
         };
+
       });
 
       setModules(processedModules);
@@ -263,6 +285,40 @@ const Modules = () => {
       setIsSubmitting(false);
     }
   };
+
+  const handleRequestAccess = async (quizId: string, moduleTitle: string) => {
+    setIsRequestingAccess(true);
+    try {
+      const sessionUserStr = localStorage.getItem("user");
+      if (!sessionUserStr) return;
+      const sessionUser = JSON.parse(sessionUserStr);
+
+      const { error } = await supabase.from('quiz_access_requests').insert([{
+        quiz_id: quizId,
+        user_id: sessionUser.id,
+        status: 'pending'
+      }]);
+
+      if (error) throw error;
+
+      if (mentorId) {
+        await sendNotification(
+          "Quiz Access Requested",
+          `${sessionUser.full_name} has requested more attempts for the "${moduleTitle}" quiz.`,
+          "info",
+          mentorId
+        );
+      }
+
+      toast.success("Access request sent to your mentor");
+      fetchModulesData();
+    } catch (error: any) {
+      toast.error("Request failed: " + error.message);
+    } finally {
+      setIsRequestingAccess(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -377,8 +433,67 @@ const Modules = () => {
                       </div>
                     ))}
                   </div>
+
+
+                  {module.quizId && (
+                    <div className="space-y-3 pt-4 border-t">
+                      <h4 className="font-medium text-foreground flex items-center gap-2">
+                        <HelpCircle className="h-4 w-4 text-primary" />
+                        Module Quiz
+                      </h4>
+                      <div className="p-4 bg-card rounded-lg border flex flex-col md:flex-row items-center justify-between gap-4">
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium">Final Assessment</p>
+                          <p className="text-xs text-muted-foreground">
+                            {module.quizPassed 
+                              ? "Completed! You've passed this quiz." 
+                              : `Attempt ${module.quizAttempts}/3 • Pass with 70% or higher to complete the module.`
+                            }
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {module.quizPassed ? (
+                            <Badge className="bg-success text-success-foreground px-3 py-1">
+                              <CheckCircle2 className="h-3 w-3 mr-1" /> Passed
+                            </Badge>
+                          ) : (
+                            <>
+                              {module.quizAttempts >= 3 && module.accessRequestStatus !== 'approved' ? (
+                                <>
+                                  {module.accessRequestStatus === 'pending' ? (
+                                    <Badge variant="outline" className="text-warning border-warning px-3 py-1 bg-warning/5 italic">
+                                      <Clock className="h-3 w-3 mr-1" /> Request Pending
+                                    </Badge>
+                                  ) : (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      className="text-warning border-warning"
+                                      onClick={() => handleRequestAccess(module.quizId!, module.title)}
+                                      disabled={isRequestingAccess}
+                                    >
+                                      {isRequestingAccess ? "Requesting..." : "Request More Attempts"}
+                                    </Button>
+                                  )}
+                                </>
+                              ) : (
+                                <Button 
+                                  size="sm" 
+                                  variant="premium"
+                                  onClick={() => setActiveQuiz({id: module.quizId!, moduleTitle: module.title})}
+                                >
+                                  {module.quizAttempts > 0 ? "Retake Quiz" : "Start Quiz"}
+                                </Button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
+
             </motion.div>
           ))}
         </div>
@@ -399,7 +514,24 @@ const Modules = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!activeQuiz} onOpenChange={(open) => !open && setActiveQuiz(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Module Quiz: {activeQuiz?.moduleTitle}</DialogTitle>
+          </DialogHeader>
+          {activeQuiz && (
+            <QuizPlayer 
+              quizId={activeQuiz.id} 
+              moduleTitle={activeQuiz.moduleTitle} 
+              onComplete={() => fetchModulesData()} 
+              onClose={() => setActiveQuiz(null)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
+
   );
 };
 

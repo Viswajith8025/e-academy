@@ -17,7 +17,9 @@ import {
   Shield,
   MessageCircle,
   Briefcase,
+  Award,
 } from "lucide-react";
+
 import Logo from "@/components/Logo";
 import { cn } from "@/lib/utils";
 
@@ -34,8 +36,10 @@ const studentLinks = [
   { icon: Users, label: "Support", href: "/support" },
   { icon: Package, label: "Add-Ons", href: "/addons" },
   { icon: MessageCircle, label: "Inbox", href: "/student/messages" },
+  { icon: Award, label: "Certificates", href: "/certificates" },
   { icon: Bell, label: "Notifications", href: "/notifications" },
 ];
+
 
 const teacherLinks = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/teacher-dashboard" },
