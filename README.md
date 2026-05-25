@@ -1,73 +1,75 @@
-# Welcome to your Lovable project
+# E-Academy Institute of Technology (EIT)
 
-## Project info
+A highly interactive, premium landing page for the E-Academy Institute of Technology. Designed to showcase career-focused curriculum tracks, mentorship programs, and a proven methodology for transitioning students into professional engineering and design roles.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Features
 
-## How can I edit this code?
+- **Premium UI/UX:** A stunning, light-mode editorial aesthetic utilizing our custom "Premium Modern Purple" brand colors.
+- **Dynamic Curriculum Bento:** Powered by the custom `MagicBento` component with real-time cursor tracking, 3D tilt effects, interactive magnetic interactions, and dynamic mesh-gradient glowing borders.
+- **Interactive Methodology Timeline:** Step-by-step guides wrapped in the bespoke `BorderGlow` component.
+- **Infinite Tech Stack Loop:** An automated, infinitely scrolling `LogoLoop` component that displays the extensive tech stack taught at the academy, complete with responsive tooltip interactions powered by `shadcn/ui`.
+- **Advanced Micro-Interactions:** Custom spring physics and orchestrated entry animations driven by `framer-motion` and `gsap`.
+- **Fully Responsive:** Beautifully optimized across mobile, tablet, and desktop viewports.
 
-There are several ways of editing your application.
+## 🛠️ Technology Stack
 
-**Use Lovable**
+This project is built using modern, production-ready frontend technologies:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- **Framework:** [React](https://react.dev/) + [Vite](https://vitejs.dev/)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Styling:** [Tailwind CSS](https://tailwindcss.com/)
+- **Component Library:** [shadcn/ui](https://ui.shadcn.com/)
+- **Animations:** [Framer Motion](https://www.framer.com/motion/) & [GSAP](https://gsap.com/)
+- **Icons:** [Lucide React](https://lucide.dev/) & [React Icons](https://react-icons.github.io/react-icons/)
+- **Routing:** [React Router v7 (Future Flags)](https://reactrouter.com/)
 
-Changes made via Lovable will be committed automatically to this repo.
+## 📦 Getting Started
 
-**Use your preferred IDE**
+To run this project locally, follow these steps:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Prerequisites
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Ensure you have Node.js and npm installed on your local machine.
 
-Follow these steps:
+### Installation
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/Viswajith8025/e-academy.git
+   cd e-academy
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-# Step 3: Install the necessary dependencies.
-npm i
+3. **Set up Environment Variables**
+   Create a `.env` file in the root directory (if not already present). For local development, dummy variables will suffice until backend integration:
+   ```env
+   VITE_SUPABASE_URL="https://your-project-url.supabase.co"
+   VITE_SUPABASE_ANON_KEY="your-anon-key"
+   ```
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+4. **Start the Development Server**
+   ```bash
+   npm run dev
+   ```
 
-**Edit a file directly in GitHub**
+5. **View the Application**
+   Open your browser and navigate to the local host URL provided in the terminal (usually `http://localhost:8080` or `http://localhost:8081`).
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📁 Project Structure
 
-**Use GitHub Codespaces**
+- `/src/pages/Index.tsx` - The main landing page view orchestrating the premium experience.
+- `/src/components/` - Custom and reusable UI components.
+  - `MagicBento.tsx` - Advanced animated curriculum grid.
+  - `BorderGlow.tsx` - Methodology timeline interactive wrapper.
+  - `LogoLoop.tsx` - Infinite scrolling tech stack banner.
+  - `RotatingText.tsx` / `GradientText.tsx` / `CountUp.tsx` - Hero section typography components.
+- `/src/components/ui/` - Foundational UI primitives constructed via shadcn/ui.
+- `/src/index.css` - Global stylesheet containing root CSS variables and brand tokens.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 📄 License
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+This project is proprietary and confidential. Unauthorized copying of this file, via any medium, is strictly prohibited.
