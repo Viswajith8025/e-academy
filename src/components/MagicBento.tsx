@@ -504,10 +504,10 @@ const MagicBento: React.FC<BentoProps> = ({
             --glow-intensity: 0;
             --glow-radius: 200px;
             --glow-color: ${glowColor};
-            --border-color: rgba(132, 0, 255, 0.05); /* very light purple border */
-            --background-light: #ffffff;
-            --text-dark: #09090b; /* foreground */
-            --text-muted: #71717a; /* muted-foreground */
+            --border-color: rgba(255, 255, 255, 0.1); /* light border on dark */
+            --background-light: #09090b;
+            --text-dark: #ffffff; /* foreground */
+            --text-muted: #a1a1aa; /* muted-foreground */
             --purple-primary: rgba(132, 0, 255, 1);
             --purple-glow: rgba(132, 0, 255, 0.1);
           }
@@ -578,7 +578,7 @@ const MagicBento: React.FC<BentoProps> = ({
       <BentoCardGrid gridRef={gridRef}>
         <div className="card-responsive grid gap-6">
           {cards.map((card, index) => {
-            const baseClassName = `card flex flex-col relative w-full p-8 rounded-2xl border border-primary/5 bg-white font-light overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1 shadow-sm ${
+            const baseClassName = `card flex flex-col relative w-full p-8 rounded-2xl border border-white/10 bg-[#09090b] text-white font-light overflow-hidden transition-all duration-300 ease-out hover:-translate-y-1 shadow-2xl ${
               enableBorderGlow ? 'card--border-glow' : ''
             }`;
 
@@ -594,29 +594,29 @@ const MagicBento: React.FC<BentoProps> = ({
                 return (
                   <>
                     <div className="flex items-start justify-between mb-6 z-10">
-                      <div className="w-12 h-12 bg-muted rounded-xl flex items-center justify-center border border-primary/5 transition-colors group-hover/item:bg-primary/5">
+                      <div className="w-12 h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/5 transition-colors group-hover/item:bg-primary/20">
                         <Icon className="h-6 w-6 text-primary" />
                       </div>
-                      <span className="bg-muted text-foreground text-xs font-semibold px-3 py-1 rounded-full border border-primary/5 flex items-center gap-1.5 transition-colors group-hover/item:bg-white group-hover/item:shadow-sm">
-                        <Clock className="w-3 h-3 text-muted-foreground" />
+                      <span className="bg-white/5 text-zinc-300 text-xs font-semibold px-3 py-1 rounded-full border border-white/5 flex items-center gap-1.5 transition-colors group-hover/item:bg-white/10 group-hover/item:text-white group-hover/item:shadow-sm">
+                        <Clock className="w-3 h-3 text-zinc-400" />
                         {card.duration}
                       </span>
                     </div>
                     
-                    <h3 className="text-xl font-bold text-foreground mb-3 tracking-tight z-10 relative">{card.title}</h3>
-                    <p className="text-muted-foreground text-sm mb-8 leading-relaxed flex-grow z-10 relative">{card.desc}</p>
+                    <h3 className="text-xl font-bold text-white mb-3 tracking-tight z-10 relative">{card.title}</h3>
+                    <p className="text-zinc-400 text-sm mb-8 leading-relaxed flex-grow z-10 relative">{card.desc}</p>
                     
-                    <div className="border-t border-primary/5 pt-6 mt-auto z-10 relative">
+                    <div className="border-t border-white/10 pt-6 mt-auto z-10 relative">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Target Roles</p>
-                          <p className="text-sm font-medium text-foreground">{card.hiring}</p>
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">Target Roles</p>
+                          <p className="text-sm font-medium text-white">{card.hiring}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Tech Stack</p>
+                          <p className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">Tech Stack</p>
                           <div className="flex flex-wrap gap-1.5">
                             {card.tools.map(tool => (
-                              <span key={tool} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-muted text-foreground border border-primary/5 group-hover/item:bg-white group-hover/item:shadow-sm transition-all">{tool}</span>
+                              <span key={tool} className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 border border-white/5 group-hover/item:bg-white/10 group-hover/item:text-white transition-all">{tool}</span>
                             ))}
                           </div>
                         </div>
